@@ -17,6 +17,7 @@ public class FifteenAgent extends Agent {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     reply.setContent("Hello!");
+                    reply.addReceiver( msg.getSender() );
                     send(reply);
                 }
             }
