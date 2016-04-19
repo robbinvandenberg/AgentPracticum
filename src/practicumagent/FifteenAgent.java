@@ -4,6 +4,7 @@ package practicumagent; /**
 
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.lang.acl.ACLMessage;
 
 public class FifteenAgent extends Agent {
 
@@ -11,10 +12,15 @@ public class FifteenAgent extends Agent {
         addBehaviour(new CyclicBehaviour() {
             @Override
             public void action() {
-                System.out.println(getAID().toString());
+                ACLMessage msg = receive();
+                if(msg != null) {
+                    ACLMessage reply = msg.createReply();
+                    reply.setPerformative(ACLMessage.INFORM);
+                    reply.setContent("Hello!");
+                    send(reply);
+                }
             }
         });
     }
-
 
 }
