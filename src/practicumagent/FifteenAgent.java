@@ -6,34 +6,38 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 
 import java.util.Random;
 
 public class FifteenAgent extends Agent {
 
+    private boolean inGame = false;
+
     protected void setup() {
         // Get receivers from arguments
         Object[] args = getArguments();
 
-        addBehaviour(new OneShotBehaviour() {
+        addBehaviour(new TickerBehaviour(this, 5000) {
             @Override
-            public void action() {
-                ACLMessage introMsg = new ACLMessage(ACLMessage.INFORM);
-                introMsg.setLanguage("meta");
-                introMsg.setContent("intro");
+            public void onTick() {
+                if(!inGame) {
+                    ACLMessage introMsg = new ACLMessage(ACLMessage.INFORM);
+                    introMsg.setLanguage("meta");
+                    introMsg.setContent("intro");
 
-                if(args != null) {
-                    // Add receivers
-                    for(Object a : args) {
-                        introMsg.addReceiver(new AID(a.toString(), AID.ISLOCALNAME));
+                    if(args != null) {
+                        // Add receivers
+                        for(Object a : args) {
+                            introMsg.addReceiver(new AID(a.toString(), AID.ISLOCALNAME));
+                        }
                     }
+
+                    send(introMsg);
                 }
-
-                send(introMsg);
             }
-
-
+            
         });
 
         addBehaviour(new CyclicBehaviour() {
@@ -44,25 +48,48 @@ public class FifteenAgent extends Agent {
                     switch(msg.getPerformative()) {
                         case ACLMessage.INFORM:
                             String message = msg.getContent();
-                            // an agent introduced itself, now send propose back
-                            if(message.equals("intro")) {
-                                ACLMessage reply = msg.createReply();
-                                reply.setPerformative(ACLMessage.PROPOSE);
-                                reply.setLanguage("meta");
-                                reply.setContent("proposal");
-                                send(reply);
+
+                            if(msg.getLanguage().equals("meta")) {
+                                // an agent introduced itself, now send propose back
+                                if(message.equals("intro")) {
+                                    ACLMessage reply = msg.createReply();
+                                    reply.setPerformative(ACLMessage.PROPOSE);
+                                    reply.setLanguage("meta");
+                                    reply.setContent("proposal");
+                                    send(reply);
+                                }
+                                else if(message.equals("gefeliciteerd")) {
+                                    // stuur een afmelding en meldt jezelf af
+                                    inGame = false;
+                                    ACLMessage reply = msg.createReply();
+                                    reply.setPerformative(ACLMessage.INFORM);
+                                    reply.setLanguage("meta");
+                                    reply.setContent("afmelden");
+                                    send(reply);
+                                }
+                                else if(message.equals("afmelden")) {
+                                    // afmelding ontvangen, maak je weer beschikbaar?
+                                    inGame = false;
+                                }
                             }
-                            else if(message.equals("gefeliciteerd")) {
-                                // stuur een afmelding
+                            else if(msg.getLanguage().equals("game")) {
                                 ACLMessage reply = msg.createReply();
                                 reply.setPerformative(ACLMessage.INFORM);
-                                reply.setLanguage("meta");
-                                reply.setContent("afmelden");
+
+                                // DOE EEN ZET
+                                String game = turn(FifteenStack.fromString(message));
+                                if(game.equals("gameover")) {
+                                    reply.setLanguage("meta");
+                                    reply.setContent("gefeliciteerd");
+                                }
+                                else {
+                                    reply.setLanguage("game");
+                                    reply.setContent(game);
+                                }
+
                                 send(reply);
                             }
-                            else if(message.equals("afmelden")) {
-                                // afmelding ontvangen, maak je weer beschikbaar?
-                            }
+
 
                             break;
                         case ACLMessage.PROPOSE:
@@ -70,7 +97,8 @@ public class FifteenAgent extends Agent {
                             // refuse or accept
 
                             // Accept
-                            if(true) {
+                            if(!inGame) {
+                                inGame = true;
                                 ACLMessage reply = msg.createReply();
                                 reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                                 reply.setLanguage("meta");
@@ -84,20 +112,14 @@ public class FifteenAgent extends Agent {
                             reply.setLanguage("game");
 
                             // START SPEL
-                            turn();
+                            String game = turn(new FifteenStack());
 
-                            reply.setContent("gamestarted");
+                            reply.setContent(game);
                             send(reply);
                             break;
                         default:
                             System.out.println("default case");
                     }
-                    //ACLMessage reply = msg.createReply();
-                    //reply.setPerformative(ACLMessage.INFORM);
-                    //reply.setContent("Hello!");
-                    //reply.addReceiver( msg.getSender() );
-                    //send(reply);
-                    msg = null;
                 }
                 else {
                     block();
@@ -107,12 +129,11 @@ public class FifteenAgent extends Agent {
         });
     }
 
-    public void turn() {
-        FifteenStack fs = new FifteenStack();
+    public String turn(FifteenStack fs) {
         boolean took = false;
 
         // Check each stack
-        for(int i = 1; i < 3; i++) {
+        for(int i = 1; i < 4; i++) {
             if(!took) {
                 int amount = fs.look(i);
                 if(amount > 0) {
@@ -122,6 +143,13 @@ public class FifteenAgent extends Agent {
                     took = true;
                 }
             }
+        }
+
+        if(fs.gameOver()) {
+            return "gameover";
+        }
+        else {
+            return fs.toString();
         }
     }
 
